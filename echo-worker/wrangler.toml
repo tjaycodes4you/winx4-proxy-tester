@@ -1,0 +1,4 @@
+name = "winx4-echo"
+main = "worker.js"
+compatibility_date = "2026-08-20"
+workers_dev = true

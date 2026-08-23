@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "winx4-proxytester"
+version = "0.1.0"
+description = "WINX4 proxy tester - fast proxy checker with IP + geo info"
+requires-python = ">=3.12"
+dependencies = ["wreq>=0.12.1", "maxminddb>=2.5"]
+
+[project.optional-dependencies]
+ui = ["nicegui>=3.0"]
+
+[project.scripts]
+winx4-proxytest = "winx4.proxytester.cli:main"
+winx4-proxytest-ui = "winx4.proxytester.ui.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
