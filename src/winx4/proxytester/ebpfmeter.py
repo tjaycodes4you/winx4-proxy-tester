@@ -85,12 +85,18 @@ class ConnMeter:
         dport: int,
         local_ports: tuple[int, ...],
         timeout: float = 0.3,
+        grace: float = 0.0,
     ) -> tuple[int, int, float] | None:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout
+        graced = False
         while True:
             match = self._match(start_mono, dport, local_ports)
             if match is not None:
+                if grace > 0 and local_ports and not graced and loop.time() < deadline:
+                    graced = True
+                    await asyncio.sleep(min(grace, max(0.0, deadline - loop.time())))
+                    continue
                 return match
             remaining = deadline - loop.time()
             if remaining <= 0:

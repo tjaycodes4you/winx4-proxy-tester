@@ -146,7 +146,8 @@ async def run(
             if meter_ok and result.start_mono is not None:
                 try:
                     claimed = await conn_meter.claim(
-                        result.start_mono, entry.port, result.local_ports, timeout=0.25
+                        result.start_mono, entry.port, result.local_ports,
+                        timeout=0.3, grace=0.15 if echo2_url else 0.0,
                     )
                 except Exception:
                     claimed = None
