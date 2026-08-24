@@ -39,7 +39,7 @@ class ConnMeter:
             self.proc = await asyncio.create_subprocess_exec(
                 "python3", "-u", self.script, "--pid", str(self.pid), "--json",
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
             )
         except OSError:
             return False
@@ -48,6 +48,14 @@ class ConnMeter:
         try:
             await asyncio.wait_for(self._attach_ready.wait(), 15)
         except asyncio.TimeoutError:
+            try:
+                self.proc.terminate()
+            except OSError:
+                pass
+            err = b""
+            if self.proc.stderr is not None:
+                err = await self.proc.stderr.read()
+            print(f"[ebpfmeter] observer failed to attach: {err.decode(errors='replace')[:500]}", flush=True)
             await self.stop()
             return False
         return True
@@ -126,7 +134,10 @@ class ConnMeter:
         if self._reader is not None:
             self._reader.cancel()
         if self.proc is not None:
-            self.proc.terminate()
+            try:
+                self.proc.terminate()
+            except OSError:
+                pass
             try:
                 await self.proc.wait()
             except (OSError, asyncio.TimeoutError):
