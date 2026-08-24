@@ -102,6 +102,13 @@ def index():
         stats = state["stats"]
         if stats is None:
             return
+        if stats.bytes_in is not None:
+            stat_bin.set_text(f"{stats.bytes_in / 1048576:.2f}")
+            stat_bout.set_text(f"{stats.bytes_out / 1048576:.2f}")
+        if stats.overhead_in is not None and stats.payload_in is not None:
+            total = stats.bytes_in + stats.bytes_out
+            overhead = stats.overhead_in + stats.overhead_out
+            stat_ovh.set_text(f"{overhead / total * 100:.1f}%" if total else "0.0%")
         if stats.done == state["last_done"]:
             return
         state["last_done"] = stats.done
@@ -111,13 +118,6 @@ def index():
         stat_cps.set_text(f"{stats.checks_per_sec:,.0f}")
         stat_avg.set_text(f"{stats.avg_latency_ms:,.0f}")
         stat_rate.set_text(f"{(stats.alive / stats.done * 100) if stats.done else 0:.1f}%")
-        if stats.bytes_in is not None:
-            stat_bin.set_text(f"{stats.bytes_in / 1048576:.2f}")
-            stat_bout.set_text(f"{stats.bytes_out / 1048576:.2f}")
-        if stats.overhead_in is not None and stats.payload_in is not None:
-            total = stats.bytes_in + stats.bytes_out
-            overhead = stats.overhead_in + stats.overhead_out
-            stat_ovh.set_text(f"{overhead / total * 100:.1f}%" if total else "0.0%")
         state["history"].append([int(time.time() * 1000), round(stats.checks_per_sec, 1)])
         chart.options["series"][0]["data"] = state["history"][-240:]
         chart.update()
