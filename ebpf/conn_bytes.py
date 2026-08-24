@@ -105,8 +105,6 @@ def main() -> None:
     args = ap.parse_args()
 
     b = BPF(text=PROG)
-    b["conn_events"].open_perf_buffer(cb)
-    print("READY", flush=True)
 
     def cb(cpu, data, size):
         e = b["conn_events"].event(data)
@@ -133,6 +131,7 @@ def main() -> None:
             )
 
     b["conn_events"].open_perf_buffer(cb)
+    print("READY", flush=True)
     while True:
         try:
             b.perf_buffer_poll()
