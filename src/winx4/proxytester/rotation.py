@@ -18,7 +18,7 @@ DC_KEYWORDS = (
     "data center", "datacenter", "choopa", "psychz", "multacom", "pccwg",
     "softlayer", "ibm", "oracle", "tencent", "alibaba", "huawei", "linode",
     "akamai", "cloudflare", "fastly", "aiven", "oneprovider", "colocrossing",
-    "interserver", "dedicated", "colo", "server", "vpn", "proxy",
+    "interserver", "dedicated", "colo", "server", "vpn", "proxy", "the constant",
 )
 
 
