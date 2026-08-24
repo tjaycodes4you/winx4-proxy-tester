@@ -36,7 +36,7 @@ body { background: #070b12; font-family: 'Cascadia Mono', Consolas, monospace; }
 .neon-btn.red { color: #ff3860; border-color: #ff3860; box-shadow: 0 0 10px #ff386044 inset; }
 .stat-card { background: #0b1120ee; border: 1px solid #00f0ff22; padding: 10px 14px; min-width: 110px; }
 .upload-compact { width: 130px; height: 34px; }
-.upload-compact .q-uploader__header { display: none; }
+.upload-compact .q-uploader__header { display: flex; justify-content: center; align-items: center; background: transparent; }
 .upload-compact .q-uploader__list { display: none; }
 .upload-compact .q-uploader { position: relative; width: 130px; height: 34px; border: 1px solid #00f0ff55; border-radius: 4px; }
 .upload-compact .q-uploader__input { position: absolute; inset: 0; width: 100% !important; height: 100% !important; cursor: pointer; }
