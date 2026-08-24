@@ -115,15 +115,15 @@ def main() -> None:
         daddr = socket.inet_ntoa(struct.pack("!I", e.daddr))
         if args.json:
             print(json.dumps({
-                "pid": e.pid,
+                "pid": int(e.pid),
                 "saddr": saddr,
-                "lport": e.lport,
+                "lport": int(e.lport),
                 "daddr": daddr,
-                "dport": e.dport,
-                "bytes_in": e.bytes_in,
-                "bytes_out": e.bytes_out,
-                "start": e.ts,
-                "dur_ms": round(e.dur_ns / 1e6, 3),
+                "dport": int(e.dport),
+                "bytes_in": int(e.bytes_in),
+                "bytes_out": int(e.bytes_out),
+                "start": int(e.ts),
+                "dur_ms": round(float(e.dur_ns) / 1e6, 3),
             }), flush=True)
         else:
             print(
