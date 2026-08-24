@@ -67,7 +67,7 @@ int kprobe__tcp_cleanup_rbuf(struct pt_regs *ctx) {
 }
 
 TRACEPOINT_PROBE(sock, inet_sock_set_state) {
-    u64 sk = args->skaddr;
+    u64 sk = (u64)args->skaddr;
     if (args->family != AF_INET || args->newstate != TCP_CLOSE)
         return 0;
     struct conn_info_t *info = starts.lookup(&sk);
