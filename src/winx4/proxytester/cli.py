@@ -142,6 +142,12 @@ def main(argv: list[str] | None = None) -> int:
                 f"({(stats.bytes_in + stats.bytes_out) / 1048576:.2f} MiB total)",
                 file=sys.stderr,
             )
+        if stats.payload_in is not None:
+            print(
+                f"payload: in={stats.payload_in:,} out={stats.payload_out:,}  "
+                f"overhead: in={stats.overhead_in:,} out={stats.overhead_out:,}",
+                file=sys.stderr,
+            )
         if stats.reasons:
             print(
                 "reasons: " + ", ".join(f"{k}={v}" for k, v in stats.reasons.most_common()),

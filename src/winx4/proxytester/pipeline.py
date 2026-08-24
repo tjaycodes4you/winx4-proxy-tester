@@ -27,6 +27,10 @@ class RunStats:
     started: float = field(default_factory=time.perf_counter)
     bytes_in: int | None = None
     bytes_out: int | None = None
+    payload_in: int | None = None
+    payload_out: int | None = None
+    overhead_in: int | None = None
+    overhead_out: int | None = None
 
     @property
     def checks_per_sec(self) -> float:
@@ -161,6 +165,19 @@ async def run(
         workers = [asyncio.create_task(worker()) for _ in range(concurrency)]
         await producer
         await asyncio.gather(*workers)
+        if meter_ok:
+            await asyncio.sleep(0.5)
+            for result in stats.results:
+                if result.bytes_in is None and result.start_mono is not None:
+                    try:
+                        claimed = await conn_meter.claim(
+                            result.start_mono, result.proxy.port, result.local_ports,
+                            timeout=0.1,
+                        )
+                    except Exception:
+                        claimed = None
+                    if claimed is not None:
+                        result.bytes_in, result.bytes_out, result.conn_ms = claimed
     finally:
         client.close()
         if conn_meter is not None and meter_ok:
@@ -170,4 +187,9 @@ async def run(
         if after is not None:
             stats.bytes_in = after[0] - before[0]
             stats.bytes_out = after[1] - before[1]
+    if meter_ok and stats.bytes_in is not None:
+        stats.payload_in = sum(r.bytes_in or 0 for r in stats.results)
+        stats.payload_out = sum(r.bytes_out or 0 for r in stats.results)
+        stats.overhead_in = max(0, stats.bytes_in - stats.payload_in)
+        stats.overhead_out = max(0, stats.bytes_out - stats.payload_out)
     return stats

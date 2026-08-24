@@ -114,6 +114,10 @@ def index():
         if stats.bytes_in is not None:
             stat_bin.set_text(f"{stats.bytes_in / 1048576:.2f}")
             stat_bout.set_text(f"{stats.bytes_out / 1048576:.2f}")
+        if stats.overhead_in is not None and stats.payload_in is not None:
+            total = stats.bytes_in + stats.bytes_out
+            overhead = stats.overhead_in + stats.overhead_out
+            stat_ovh.set_text(f"{overhead / total * 100:.1f}%" if total else "0.0%")
         state["history"].append([int(time.time() * 1000), round(stats.checks_per_sec, 1)])
         chart.options["series"][0]["data"] = state["history"][-240:]
         chart.update()
@@ -267,6 +271,7 @@ def index():
                     stat_rate = _stat_card("alive %", "0")
                     stat_bin = _stat_card("mib in", "-")
                     stat_bout = _stat_card("mib out", "-")
+                    stat_ovh = _stat_card("wire ovh %", "-")
                 chart = ui.echart({
                     "backgroundColor": "transparent",
                     "grid": {"left": 44, "right": 16, "top": 10, "bottom": 22},
