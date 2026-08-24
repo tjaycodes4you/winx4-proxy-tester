@@ -7,6 +7,7 @@ import os
 import sys
 
 from .bytemeter import make_provider
+from .ebpfmeter import DEFAULT_SCRIPT, ConnMeter
 from .models import CheckResult
 from .parser import parse_file, parse_lines
 from .plugins import ENRICHERS, SINKS, TRANSPORTS
@@ -40,6 +41,12 @@ def main(argv: list[str] | None = None) -> int:
         "--bytes-service",
         help="systemd service name to meter exact network bytes via IP accounting "
         "(e.g. winx4-ui when running under systemd)",
+    )
+    ap.add_argument(
+        "--ebpf",
+        action="store_true",
+        help="attach the eBPF observer and attribute exact per-connection bytes "
+        "to each check (Linux/root only; script path via WX4_EBPF_SCRIPT)",
     )
     ap.add_argument("--quiet", action="store_true", help="no progress or summary")
     args = ap.parse_args(argv)
@@ -95,6 +102,11 @@ def main(argv: list[str] | None = None) -> int:
     enricher = (
         ENRICHERS["geolite2"](args.geo, args.asn) if (args.geo or args.asn) else None
     )
+    conn_meter = (
+        ConnMeter(os.environ.get("WX4_EBPF_SCRIPT", DEFAULT_SCRIPT), os.getpid())
+        if args.ebpf
+        else None
+    )
     try:
         stats = asyncio.run(
             TRANSPORTS["local"](
@@ -107,6 +119,7 @@ def main(argv: list[str] | None = None) -> int:
                 enricher=enricher,
                 echo2_url=args.echo2,
                 byte_provider=make_provider(args.bytes_service),
+                conn_meter=conn_meter,
             )
         )
     finally:

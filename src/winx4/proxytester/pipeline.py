@@ -10,6 +10,7 @@ from typing import Callable, Iterable
 import wreq
 
 from .checker import CHECK_TIMEOUT, check_one, fetch_baseline
+from .ebpfmeter import ConnMeter
 from .enricher import GeoEnricher
 from .models import CheckResult, ProxyEntry
 from .plugins import CHECKERS, transport as register_transport
@@ -78,10 +79,14 @@ async def run(
     checker: str = "echo",
     echo2_url: str | None = None,
     byte_provider: Callable[[], tuple[int, int] | None] | None = None,
+    conn_meter: ConnMeter | None = None,
 ) -> RunStats:
     check_fn = CHECKERS.get(checker)
     if check_fn is None:
         raise ValueError(f"unknown checker: {checker} (registered: {sorted(CHECKERS)})")
+    meter_ok = False
+    if conn_meter is not None:
+        meter_ok = await conn_meter.start()
     client = wreq.Client(pool_max_idle_per_host=0)
     baseline = await fetch_baseline(echo_url, timeout=timeout)
     stats = RunStats()
@@ -138,6 +143,15 @@ async def run(
                     result.geo = enricher.enrich(result.egress_ip)
             except Exception:
                 pass
+            if meter_ok and result.start_mono is not None:
+                try:
+                    claimed = await conn_meter.claim(
+                        result.start_mono, entry.port, result.local_ports, timeout=0.25
+                    )
+                except Exception:
+                    claimed = None
+                if claimed is not None:
+                    result.bytes_in, result.bytes_out, result.conn_ms = claimed
             record(result)
 
     try:
@@ -148,6 +162,8 @@ async def run(
         await asyncio.gather(*workers)
     finally:
         client.close()
+        if conn_meter is not None and meter_ok:
+            await conn_meter.stop()
     if byte_provider is not None and before is not None:
         after = byte_provider()
         if after is not None:

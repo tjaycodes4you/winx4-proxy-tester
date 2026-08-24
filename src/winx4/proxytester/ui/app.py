@@ -10,6 +10,7 @@ from nicegui import events, ui
 
 from ..bytemeter import make_provider
 from ..cli import DEFAULT_ECHO
+from ..ebpfmeter import DEFAULT_SCRIPT, ConnMeter
 from ..models import CheckResult
 from ..parser import parse_lines
 from ..plugins import ENRICHERS, SINKS, TRANSPORTS
@@ -21,6 +22,8 @@ RED = "#ff3860"
 GEO_CITY_DEFAULT = os.environ.get("WX4_GEO_CITY", "")
 GEO_ASN_DEFAULT = os.environ.get("WX4_GEO_ASN", "")
 BYTES_SERVICE = os.environ.get("WX4_BYTES_SERVICE", "")
+EBPF_ENABLED = os.environ.get("WX4_EBPF", "") == "1"
+EBPF_SCRIPT = os.environ.get("WX4_EBPF_SCRIPT", DEFAULT_SCRIPT)
 
 CSS = """
 <style>
@@ -51,6 +54,8 @@ COLUMNS = [
     {"headerName": "egress ip", "field": "ip", "width": 140},
     {"headerName": "ip2", "field": "ip2", "width": 140},
     {"headerName": "anon", "field": "anon", "width": 110},
+    {"headerName": "bytes in", "field": "bin", "width": 90},
+    {"headerName": "bytes out", "field": "bout", "width": 90},
     {"headerName": "country", "field": "country", "width": 140},
     {"headerName": "org", "field": "org", "minWidth": 220},
 ]
@@ -86,6 +91,8 @@ def index():
                     "ip": result.egress_ip or "",
                     "ip2": result.egress_ip2 or "",
                     "anon": result.anonymity or "",
+                    "bin": result.bytes_in if result.bytes_in is not None else "",
+                    "bout": result.bytes_out if result.bytes_out is not None else "",
                     "country": geo.country if geo else "",
                     "org": geo.org if geo else "",
                 })
@@ -177,6 +184,7 @@ def index():
                     cancel=state["cancel"],
                     echo2_url=echo2_input.value.strip() or None,
                     byte_provider=make_provider(BYTES_SERVICE),
+                    conn_meter=ConnMeter(EBPF_SCRIPT, os.getpid()) if EBPF_ENABLED else None,
                 )
                 state["stats"] = stats
             finally:

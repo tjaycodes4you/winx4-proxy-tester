@@ -42,3 +42,8 @@ class CheckResult:
     http_version: str | None = None
     echo_headers: dict[str, str] | None = None
     geo: GeoInfo | None = None
+    bytes_in: int | None = None
+    bytes_out: int | None = None
+    conn_ms: float | None = None
+    local_ports: tuple[int, ...] = ()
+    start_mono: int | None = None

@@ -9,6 +9,7 @@ Usage (root, system python with python3-bpfcc installed):
   python3 conn_bytes.py --pid $(pgrep -f winx4-proxytest)
 """
 import argparse
+import json
 import socket
 import struct
 
@@ -29,6 +30,7 @@ struct conn_info_t {
     u32 daddr;
     u64 bytes_out;
     u64 bytes_in;
+    u64 dur_ns;
 };
 
 BPF_HASH(starts, u64, struct conn_info_t);
@@ -88,7 +90,7 @@ TRACEPOINT_PROBE(sock, inet_sock_set_state) {
     bpf_probe_read_kernel(&daddr, 4, args->daddr);
     info->saddr = bpf_ntohl(saddr);
     info->daddr = bpf_ntohl(daddr);
-    info->ts = bpf_ktime_get_ns() - info->ts;
+    info->dur_ns = bpf_ktime_get_ns() - info->ts;
     conn_events.perf_submit(args, info, sizeof(*info));
     starts.delete(&sk);
     return 0;
@@ -99,6 +101,7 @@ TRACEPOINT_PROBE(sock, inet_sock_set_state) {
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--pid", type=int, help="only show connections from this pid")
+    ap.add_argument("--json", action="store_true", help="emit machine-readable JSON lines")
     args = ap.parse_args()
 
     b = BPF(text=PROG)
@@ -110,10 +113,23 @@ def main() -> None:
             return
         saddr = socket.inet_ntoa(struct.pack("!I", e.saddr))
         daddr = socket.inet_ntoa(struct.pack("!I", e.daddr))
-        print(
-            f"pid={e.pid} {saddr}:{e.lport} -> {daddr}:{e.dport} "
-            f"in={e.bytes_in}B out={e.bytes_out}B dur={e.ts / 1e6:.1f}ms"
-        )
+        if args.json:
+            print(json.dumps({
+                "pid": e.pid,
+                "saddr": saddr,
+                "lport": e.lport,
+                "daddr": daddr,
+                "dport": e.dport,
+                "bytes_in": e.bytes_in,
+                "bytes_out": e.bytes_out,
+                "start": e.ts,
+                "dur_ms": round(e.dur_ns / 1e6, 3),
+            }), flush=True)
+        else:
+            print(
+                f"pid={e.pid} {saddr}:{e.lport} -> {daddr}:{e.dport} "
+                f"in={e.bytes_in}B out={e.bytes_out}B dur={e.dur_ns / 1e6:.1f}ms"
+            )
 
     b["conn_events"].open_perf_buffer(cb)
     while True:

@@ -116,23 +116,41 @@ async def check_one(
     echo2_url: str | None = None,
 ) -> CheckResult:
     start = time.perf_counter()
+    start_mono = time.monotonic_ns()
+    local_ports: list[int] = []
+
+    def note(resp) -> None:
+        if resp.local_addr is not None:
+            local_ports.append(resp.local_addr.port())
+
     try:
         resp = await client.get(echo_url, proxy=_proxy_object(entry), timeout=timeout)
+        note(resp)
         total_ms = (time.perf_counter() - start) * 1000
         code = resp.status.as_int()
         if code == 407:
-            return CheckResult(entry, "error", reason="auth", total_ms=total_ms)
+            return CheckResult(
+                entry, "error", reason="auth", total_ms=total_ms,
+                local_ports=tuple(local_ports), start_mono=start_mono,
+            )
         if code != 200:
-            return CheckResult(entry, "error", reason=f"http{code}", total_ms=total_ms)
+            return CheckResult(
+                entry, "error", reason=f"http{code}", total_ms=total_ms,
+                local_ports=tuple(local_ports), start_mono=start_mono,
+            )
         egress, headers = await _parse_echo(resp)
         if egress is None:
-            return CheckResult(entry, "error", reason="bad_echo", total_ms=total_ms)
+            return CheckResult(
+                entry, "error", reason="bad_echo", total_ms=total_ms,
+                local_ports=tuple(local_ports), start_mono=start_mono,
+            )
         egress2 = None
         if echo2_url:
             try:
                 resp2 = await client.get(
                     echo2_url, proxy=_proxy_object(entry), timeout=timeout
                 )
+                note(resp2)
                 if resp2.status.as_int() == 200:
                     egress2, _ = await _parse_echo(resp2)
             except Exception:
@@ -146,6 +164,8 @@ async def check_one(
             anonymity=classify_anonymity(headers, baseline) if headers else None,
             http_version=str(resp.version).rsplit(".", 1)[-1],
             echo_headers=headers,
+            local_ports=tuple(local_ports),
+            start_mono=start_mono,
         )
     except Exception as exc:
         return CheckResult(
@@ -153,4 +173,6 @@ async def check_one(
             "error",
             reason=_classify_error(exc),
             total_ms=(time.perf_counter() - start) * 1000,
+            local_ports=tuple(local_ports),
+            start_mono=start_mono,
         )
