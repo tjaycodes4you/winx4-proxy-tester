@@ -413,7 +413,7 @@ def index():
                                 sample_input = ui.number("sample", value=40, min=1, max=100000) \
                                     .classes("w-1/3")
                             ui.label("samples the first N proxies every interval "
-                                     "to observe egress IP rotation")
+                                     "to observe egress IP rotation") \
                                 .classes("text-[10px] text-cyan-400/60")
                         rotation_card.visible = False
                         with ui.row().classes("w-full gap-2 items-center"):
