@@ -35,23 +35,17 @@ struct conn_info_t {
 BPF_HASH(starts, u64, struct conn_info_t);
 BPF_PERF_OUTPUT(conn_events);
 
-static struct conn_info_t *get_info(u64 sk) {
-    struct conn_info_t *info = starts.lookup(&sk);
-    if (info)
-        return info;
+int kprobe__tcp_sendmsg(struct pt_regs *ctx) {
+    u64 sk = PT_REGS_PARM1(ctx);
+    if (!sk)
+        return 0;
+    size_t size = (size_t)PT_REGS_PARM3(ctx);
     struct conn_info_t zero = {};
     zero.ts = bpf_ktime_get_ns();
     zero.pid = bpf_get_current_pid_tgid() >> 32;
-    starts.update(&sk, &zero);
-    return starts.lookup(&sk);
-}
-
-int kprobe__tcp_sendmsg(struct pt_regs *ctx) {
-    u64 sk = PT_REGS_PARM1(ctx);
-    size_t size = (size_t)PT_REGS_PARM3(ctx);
-    if (!sk)
+    struct conn_info_t *info = starts.lookup_or_try_init(&sk, &zero);
+    if (!info)
         return 0;
-    struct conn_info_t *info = get_info(sk);
     info->bytes_out += size;
     return 0;
 }
@@ -61,7 +55,12 @@ int kprobe__tcp_cleanup_rbuf(struct pt_regs *ctx) {
     int copied = (int)PT_REGS_PARM2(ctx);
     if (!sk || copied <= 0)
         return 0;
-    struct conn_info_t *info = get_info(sk);
+    struct conn_info_t zero = {};
+    zero.ts = bpf_ktime_get_ns();
+    zero.pid = bpf_get_current_pid_tgid() >> 32;
+    struct conn_info_t *info = starts.lookup_or_try_init(&sk, &zero);
+    if (!info)
+        return 0;
     info->bytes_in += copied;
     return 0;
 }
