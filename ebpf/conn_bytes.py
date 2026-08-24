@@ -17,8 +17,9 @@ from bcc import BPF
 
 PROG = r"""
 #include <uapi/linux/ptrace.h>
-#include <net/sock.h>
-#include <bcc/proto.h>
+#include <uapi/linux/in.h>
+
+#define TCP_CLOSE 7
 
 struct conn_info_t {
     u64 ts;
@@ -31,47 +32,56 @@ struct conn_info_t {
     u64 bytes_in;
 };
 
-BPF_HASH(starts, struct sock *, struct conn_info_t);
+BPF_HASH(starts, u64, struct conn_info_t);
 BPF_PERF_OUTPUT(conn_events);
 
-static struct conn_info_t *get_info(struct sock *sk) {
+static struct conn_info_t *get_info(u64 sk) {
     struct conn_info_t *info = starts.lookup(&sk);
     if (info)
         return info;
     struct conn_info_t zero = {};
     zero.ts = bpf_ktime_get_ns();
     zero.pid = bpf_get_current_pid_tgid() >> 32;
-    zero.lport = sk->__sk_common.skc_num;
-    zero.dport = bpf_ntohs(sk->__sk_common.skc_dport);
-    zero.saddr = bpf_ntohl(sk->__sk_common.skc_rcv_saddr);
-    zero.daddr = bpf_ntohl(sk->__sk_common.skc_daddr);
     starts.update(&sk, &zero);
     return starts.lookup(&sk);
 }
 
-int kprobe__tcp_sendmsg(struct pt_regs *ctx, struct sock *sk, struct msghdr *msg, size_t size) {
-    if (!sk || sk->__sk_common.skc_family != AF_INET)
+int kprobe__tcp_sendmsg(struct pt_regs *ctx) {
+    u64 sk = PT_REGS_PARM1(ctx);
+    size_t size = (size_t)PT_REGS_PARM3(ctx);
+    if (!sk)
         return 0;
     struct conn_info_t *info = get_info(sk);
     info->bytes_out += size;
     return 0;
 }
 
-int kprobe__tcp_cleanup_rbuf(struct pt_regs *ctx, struct sock *sk, int copied) {
-    if (!sk || copied <= 0 || sk->__sk_common.skc_family != AF_INET)
+int kprobe__tcp_cleanup_rbuf(struct pt_regs *ctx) {
+    u64 sk = PT_REGS_PARM1(ctx);
+    int copied = (int)PT_REGS_PARM2(ctx);
+    if (!sk || copied <= 0)
         return 0;
     struct conn_info_t *info = get_info(sk);
     info->bytes_in += copied;
     return 0;
 }
 
-int kprobe__tcp_close(struct pt_regs *ctx, struct sock *sk, long timeout) {
-    if (!sk || sk->__sk_common.skc_family != AF_INET)
+TRACEPOINT_PROBE(sock, inet_sock_set_state) {
+    u64 sk = args->skaddr;
+    if (args->family != AF_INET || args->newstate != TCP_CLOSE)
         return 0;
     struct conn_info_t *info = starts.lookup(&sk);
     if (!info)
         return 0;
-    conn_events.perf_submit(ctx, info, sizeof(*info));
+    info->lport = args->sport;
+    info->dport = args->dport;
+    u32 saddr = 0;
+    u32 daddr = 0;
+    bpf_probe_read_kernel(&saddr, 4, args->saddr);
+    bpf_probe_read_kernel(&daddr, 4, args->daddr);
+    info->saddr = bpf_ntohl(saddr);
+    info->daddr = bpf_ntohl(daddr);
+    conn_events.perf_submit(args, info, sizeof(*info));
     starts.delete(&sk);
     return 0;
 }
