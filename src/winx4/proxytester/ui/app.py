@@ -8,6 +8,7 @@ import time
 
 from nicegui import events, ui
 
+from ..bytemeter import make_provider
 from ..cli import DEFAULT_ECHO
 from ..models import CheckResult
 from ..parser import parse_lines
@@ -19,6 +20,7 @@ RED = "#ff3860"
 
 GEO_CITY_DEFAULT = os.environ.get("WX4_GEO_CITY", "")
 GEO_ASN_DEFAULT = os.environ.get("WX4_GEO_ASN", "")
+BYTES_SERVICE = os.environ.get("WX4_BYTES_SERVICE", "")
 
 CSS = """
 <style>
@@ -102,6 +104,9 @@ def index():
         stat_cps.set_text(f"{stats.checks_per_sec:,.0f}")
         stat_avg.set_text(f"{stats.avg_latency_ms:,.0f}")
         stat_rate.set_text(f"{(stats.alive / stats.done * 100) if stats.done else 0:.1f}%")
+        if stats.bytes_in is not None:
+            stat_bin.set_text(f"{stats.bytes_in / 1048576:.2f}")
+            stat_bout.set_text(f"{stats.bytes_out / 1048576:.2f}")
         state["history"].append([int(time.time() * 1000), round(stats.checks_per_sec, 1)])
         chart.options["series"][0]["data"] = state["history"][-240:]
         chart.update()
@@ -171,6 +176,7 @@ def index():
                     enricher=enricher,
                     cancel=state["cancel"],
                     echo2_url=echo2_input.value.strip() or None,
+                    byte_provider=make_provider(BYTES_SERVICE),
                 )
                 state["stats"] = stats
             finally:
@@ -251,6 +257,8 @@ def index():
                     stat_cps = _stat_card("checks/s", "0")
                     stat_avg = _stat_card("avg ms", "0")
                     stat_rate = _stat_card("alive %", "0")
+                    stat_bin = _stat_card("mib in", "-")
+                    stat_bout = _stat_card("mib out", "-")
                 chart = ui.echart({
                     "backgroundColor": "transparent",
                     "grid": {"left": 44, "right": 16, "top": 10, "bottom": 22},

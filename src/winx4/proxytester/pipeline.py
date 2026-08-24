@@ -24,6 +24,8 @@ class RunStats:
     results: list[CheckResult] = field(default_factory=list)
     latency_ms: list[float] = field(default_factory=list)
     started: float = field(default_factory=time.perf_counter)
+    bytes_in: int | None = None
+    bytes_out: int | None = None
 
     @property
     def checks_per_sec(self) -> float:
@@ -75,6 +77,7 @@ async def run(
     cancel: asyncio.Event | None = None,
     checker: str = "echo",
     echo2_url: str | None = None,
+    byte_provider: Callable[[], tuple[int, int] | None] | None = None,
 ) -> RunStats:
     check_fn = CHECKERS.get(checker)
     if check_fn is None:
@@ -138,10 +141,16 @@ async def run(
             record(result)
 
     try:
+        before = byte_provider() if byte_provider is not None else None
         producer = asyncio.create_task(produce())
         workers = [asyncio.create_task(worker()) for _ in range(concurrency)]
         await producer
         await asyncio.gather(*workers)
     finally:
         client.close()
+    if byte_provider is not None and before is not None:
+        after = byte_provider()
+        if after is not None:
+            stats.bytes_in = after[0] - before[0]
+            stats.bytes_out = after[1] - before[1]
     return stats

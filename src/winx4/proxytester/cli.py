@@ -6,6 +6,7 @@ import datetime
 import os
 import sys
 
+from .bytemeter import make_provider
 from .models import CheckResult
 from .parser import parse_file, parse_lines
 from .plugins import ENRICHERS, SINKS, TRANSPORTS
@@ -34,6 +35,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--country",
         help="only output proxies from this country ISO code (requires --geo)",
+    )
+    ap.add_argument(
+        "--bytes-service",
+        help="systemd service name to meter exact network bytes via IP accounting "
+        "(e.g. winx4-ui when running under systemd)",
     )
     ap.add_argument("--quiet", action="store_true", help="no progress or summary")
     args = ap.parse_args(argv)
@@ -100,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
                 dedupe=not args.no_dedupe,
                 enricher=enricher,
                 echo2_url=args.echo2,
+                byte_provider=make_provider(args.bytes_service),
             )
         )
     finally:
@@ -116,6 +123,12 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         print(f"avg latency: {stats.avg_latency_ms:.1f} ms", file=sys.stderr)
+        if stats.bytes_in is not None and stats.bytes_out is not None:
+            print(
+                f"bytes: in={stats.bytes_in:,} out={stats.bytes_out:,} "
+                f"({(stats.bytes_in + stats.bytes_out) / 1048576:.2f} MiB total)",
+                file=sys.stderr,
+            )
         if stats.reasons:
             print(
                 "reasons: " + ", ".join(f"{k}={v}" for k, v in stats.reasons.most_common()),
