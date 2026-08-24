@@ -43,13 +43,23 @@ class ConnMeter:
             )
         except OSError:
             return False
+        self._attach_ready = asyncio.Event()
         self._reader = asyncio.create_task(self._read())
+        try:
+            await asyncio.wait_for(self._attach_ready.wait(), 15)
+        except asyncio.TimeoutError:
+            await self.stop()
+            return False
         return True
 
     async def _read(self) -> None:
         async for line in self.proc.stdout:
+            text = line.decode(errors="replace").strip()
+            if text == "READY":
+                self._attach_ready.set()
+                continue
             try:
-                d = json.loads(line)
+                d = json.loads(text)
             except (ValueError, TypeError):
                 continue
             self.events.append(
