@@ -35,6 +35,12 @@ body { background: #070b12; font-family: 'Cascadia Mono', Consolas, monospace; }
 .neon-btn.cyan:hover { background: #00f0ff11; }
 .neon-btn.red { color: #ff3860; border-color: #ff3860; box-shadow: 0 0 10px #ff386044 inset; }
 .stat-card { background: #0b1120ee; border: 1px solid #00f0ff22; padding: 10px 14px; min-width: 110px; }
+.upload-compact { width: 130px; height: 34px; }
+.upload-compact .q-uploader__header { display: none; }
+.upload-compact .q-uploader__list { display: none; }
+.upload-compact .q-uploader { width: 130px; height: 34px; border: 1px solid #00f0ff55; border-radius: 4px; }
+.upload-compact .q-uploader__content { display: flex; justify-content: center; align-items: center; font-size: 11px; letter-spacing: .15em; color: #00f0ff; }
+.upload-compact .q-uploader__content > div { display: none; }
 .stat-label { color: #00f0ff88; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; }
 .stat-value { color: #e8f6ff; font-size: 22px; font-weight: 700; text-shadow: 0 0 10px #00f0ff66; }
 .scanlines::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
@@ -236,10 +242,8 @@ def index():
                     with ui.column().classes("gap-3 p-4"):
                         with ui.row().classes("w-full items-center justify-between"):
                             ui.label("PROXY LIST").classes("text-xs tracking-[.3em] text-cyan-400/70")
-                            with ui.button("LOAD FILE", icon="upload_file") \
-                                    .props("flat dense color=cyan").classes("text-xs"):
-                                ui.upload(on_upload=handle_upload, auto_upload=True, label="") \
-                                    .props("absolute-full z-10 opacity-0")
+                            ui.upload(on_upload=handle_upload, auto_upload=True, label="LOAD FILE") \
+                                .classes("upload-compact")
                         textarea = ui.textarea("paste proxies (one per line)") \
                             .classes("w-full").style("font-family: monospace; font-size: 12px")
                         count_lbl = ui.label("").classes("text-xs text-cyan-400/70")
