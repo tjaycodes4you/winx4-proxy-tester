@@ -1,0 +1,39 @@
+{
+  "started_at": 1787587030.2762318,
+  "interval_s": 1.0,
+  "rounds": 3,
+  "cancelled": false,
+  "sessions": 2,
+  "alive_per_round": [
+    1,
+    1,
+    1
+  ],
+  "per_session": {
+    "127.0.0.1:8770": [
+      "38.86.17.84",
+      "38.86.17.84",
+      "38.86.17.84"
+    ],
+    "203.0.113.7:3128": [
+      null,
+      null,
+      null
+    ]
+  },
+  "rotation_events": [],
+  "hold_distribution_rounds": {
+    "3": 1
+  },
+  "pool_sizes": {
+    "127.0.0.1:8770": 1,
+    "203.0.113.7:3128": 0
+  },
+  "shared_ips": {},
+  "flips_per_round": {
+    "1": 0,
+    "2": 0
+  },
+  "protocol_anomalies": [],
+  "quality": {}
+}
