@@ -11,7 +11,6 @@ Usage (root, system python with python3-bpfcc installed):
 import argparse
 import socket
 import struct
-import time
 
 from bcc import BPF
 
@@ -67,7 +66,16 @@ int kprobe__tcp_cleanup_rbuf(struct pt_regs *ctx) {
 
 TRACEPOINT_PROBE(sock, inet_sock_set_state) {
     u64 sk = (u64)args->skaddr;
-    if (args->family != AF_INET || args->newstate != TCP_CLOSE)
+    if (args->family != AF_INET)
+        return 0;
+    if (args->newstate == TCP_SYN_SENT) {
+        struct conn_info_t zero = {};
+        zero.ts = bpf_ktime_get_ns();
+        zero.pid = bpf_get_current_pid_tgid() >> 32;
+        starts.lookup_or_try_init(&sk, &zero);
+        return 0;
+    }
+    if (args->newstate != TCP_CLOSE)
         return 0;
     struct conn_info_t *info = starts.lookup(&sk);
     if (!info)
@@ -80,6 +88,7 @@ TRACEPOINT_PROBE(sock, inet_sock_set_state) {
     bpf_probe_read_kernel(&daddr, 4, args->daddr);
     info->saddr = bpf_ntohl(saddr);
     info->daddr = bpf_ntohl(daddr);
+    info->ts = bpf_ktime_get_ns() - info->ts;
     conn_events.perf_submit(args, info, sizeof(*info));
     starts.delete(&sk);
     return 0;
@@ -101,10 +110,9 @@ def main() -> None:
             return
         saddr = socket.inet_ntoa(struct.pack("!I", e.saddr))
         daddr = socket.inet_ntoa(struct.pack("!I", e.daddr))
-        dur_ms = (time.time_ns() - e.ts) / 1e6
         print(
             f"pid={e.pid} {saddr}:{e.lport} -> {daddr}:{e.dport} "
-            f"in={e.bytes_in}B out={e.bytes_out}B dur={dur_ms:.1f}ms"
+            f"in={e.bytes_in}B out={e.bytes_out}B dur={e.ts / 1e6:.1f}ms"
         )
 
     b["conn_events"].open_perf_buffer(cb)
