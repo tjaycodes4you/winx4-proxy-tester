@@ -136,7 +136,7 @@ def index():
         state["results"].append(result)
 
     async def handle_upload(e: events.UploadEventArguments) -> None:
-        content = await e.content.read()
+        content = await e.file.read()
         text = content.decode("utf-8", errors="ignore")
         state["entries"] = list(parse_lines(io.StringIO(text)))
         state["source"] = "upload"
