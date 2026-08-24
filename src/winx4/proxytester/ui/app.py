@@ -105,6 +105,7 @@ def index():
         if stats.bytes_in is not None:
             stat_bin.set_text(f"{stats.bytes_in / 1048576:.2f}")
             stat_bout.set_text(f"{stats.bytes_out / 1048576:.2f}")
+            stat_total.set_text(f"{(stats.bytes_in + stats.bytes_out) / 1048576:.2f}")
         if stats.overhead_in is not None and stats.payload_in is not None:
             total = stats.bytes_in + stats.bytes_out
             overhead = stats.overhead_in + stats.overhead_out
@@ -151,8 +152,8 @@ def index():
         if not entries:
             ui.notify("no proxies parsed from list", type="warning")
             return
-        geo = geo_input.value.strip() if geo_input.value else None
-        asn = asn_input.value.strip() if asn_input.value else None
+        geo = GEO_CITY_DEFAULT or None
+        asn = GEO_ASN_DEFAULT or None
         enricher = ENRICHERS["geolite2"](geo, asn) if (geo or asn) else None
         state.update(
             entries=entries,
@@ -233,11 +234,14 @@ def index():
             with ui.column().classes("w-[380px] gap-4"):
                 with ui.card().classes("panel w-full p-4").tight():
                     with ui.column().classes("gap-3 p-4"):
-                        ui.label("PROXY LIST").classes("text-xs tracking-[.3em] text-cyan-400/70")
+                        with ui.row().classes("w-full items-center justify-between"):
+                            ui.label("PROXY LIST").classes("text-xs tracking-[.3em] text-cyan-400/70")
+                            with ui.button("LOAD FILE", icon="upload_file") \
+                                    .props("flat dense color=cyan").classes("text-xs"):
+                                ui.upload(on_upload=handle_upload, auto_upload=True, label="") \
+                                    .props("absolute-full z-10 opacity-0")
                         textarea = ui.textarea("paste proxies (one per line)") \
                             .classes("w-full").style("font-family: monospace; font-size: 12px")
-                        ui.upload(on_upload=handle_upload, auto_upload=True, label="DROP LIST FILE") \
-                            .classes("w-full")
                         count_lbl = ui.label("").classes("text-xs text-cyan-400/70")
                         echo_input = ui.input("echo url", value=DEFAULT_ECHO).classes("w-full")
                         echo2_input = ui.input("echo url 2 (optional)").classes("w-full") \
@@ -249,10 +253,6 @@ def index():
                                 .classes("w-1/2")
                             timeout_input = ui.number("timeout (s)", value=3.0, min=0.1, step=0.5) \
                                 .classes("w-1/2")
-                        geo_input = ui.input("GeoLite2-City.mmdb (optional)", value=GEO_CITY_DEFAULT) \
-                            .classes("w-full")
-                        asn_input = ui.input("GeoLite2-ASN.mmdb (optional)", value=GEO_ASN_DEFAULT) \
-                            .classes("w-full")
                         with ui.row().classes("w-full gap-2 items-center"):
                             run_btn = ui.button("RUN", on_click=start_run).classes("neon-btn cyan flex-1")
                             stop_btn = ui.button("STOP", on_click=lambda: state["cancel"].set() if state["cancel"] else None) \
@@ -262,16 +262,30 @@ def index():
                             spinner.visible = False
 
             with ui.column().classes("flex-1 gap-4"):
-                with ui.row().classes("w-full gap-3"):
-                    stat_checked = _stat_card("checked", "0")
-                    stat_alive = _stat_card("alive", "0")
-                    stat_dead = _stat_card("dead", "0")
-                    stat_cps = _stat_card("checks/s", "0")
-                    stat_avg = _stat_card("avg ms", "0")
-                    stat_rate = _stat_card("alive %", "0")
-                    stat_bin = _stat_card("mib in", "-")
-                    stat_bout = _stat_card("mib out", "-")
-                    stat_ovh = _stat_card("wire ovh %", "-")
+                with ui.row().classes("w-full gap-3 flex-wrap"):
+                    stat_checked = _stat_card("checked", "0",
+                                              "Total proxies tested so far in this run")
+                    stat_alive = _stat_card("alive", "0",
+                                            "Proxies that passed the echo check")
+                    stat_dead = _stat_card("dead", "0",
+                                           "Proxies that failed, timed out, or were cancelled")
+                    stat_cps = _stat_card("checks/s", "0",
+                                          "Checks completed per second")
+                    stat_avg = _stat_card("avg ms", "0",
+                                          "Average total time per check, including the second echo")
+                    stat_rate = _stat_card("alive %", "0",
+                                           "Share of checks that passed")
+                    stat_bin = _stat_card("mib in", "-",
+                                          "Exact wire bytes received by this server during the run "
+                                          "(IP layer: headers, handshakes, retransmits included)")
+                    stat_bout = _stat_card("mib out", "-",
+                                           "Exact wire bytes sent by this server during the run "
+                                           "(IP layer: headers, handshakes, retransmits included)")
+                    stat_total = _stat_card("mib total", "-",
+                                            "Sum of bytes in + out for this run")
+                    stat_ovh = _stat_card("wire ovh %", "-",
+                                          "Share of wire bytes not visible as payload: "
+                                          "TCP/IP headers, SYN retries, ACKs")
                 chart = ui.echart({
                     "backgroundColor": "transparent",
                     "grid": {"left": 44, "right": 16, "top": 10, "bottom": 22},
@@ -294,8 +308,9 @@ def index():
     ui.timer(0.5, flush)
 
 
-def _stat_card(label: str, value: str):
-    with ui.column().classes("stat-card gap-0"):
+def _stat_card(label: str, value: str, tooltip: str):
+    card = ui.column().classes("stat-card gap-0").tooltip(tooltip)
+    with card:
         ui.label(label).classes("stat-label")
         value_lbl = ui.label(value).classes("stat-value")
     return value_lbl
