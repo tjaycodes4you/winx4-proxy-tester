@@ -38,7 +38,7 @@ body { background: #070b12; font-family: 'Cascadia Mono', Consolas, monospace; }
 .upload-compact { width: 130px; height: 34px; }
 .upload-compact .q-uploader__header { display: none; }
 .upload-compact .q-uploader__list { display: none; }
-.upload-compact .q-uploader { width: 130px; height: 34px; border: 1px solid #00f0ff55; border-radius: 4px; }
+.upload-compact .q-uploader { position: relative; width: 130px; height: 34px; border: 1px solid #00f0ff55; border-radius: 4px; }
 .upload-compact .q-uploader__input { position: absolute; inset: 0; width: 100% !important; height: 100% !important; cursor: pointer; }
 .upload-compact .q-uploader__content { display: flex; justify-content: center; align-items: center; font-size: 11px; letter-spacing: .15em; color: #00f0ff; }
 .upload-compact .q-uploader__content > div { display: none; }
