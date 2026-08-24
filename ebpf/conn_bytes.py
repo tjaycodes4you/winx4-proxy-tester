@@ -68,7 +68,7 @@ TRACEPOINT_PROBE(sock, inet_sock_set_state) {
     u64 sk = (u64)args->skaddr;
     if (args->family != AF_INET)
         return 0;
-    if (args->newstate == TCP_SYN_SENT) {
+    if (args->newstate == BPF_TCP_SYN_SENT) {
         struct conn_info_t zero = {};
         zero.ts = bpf_ktime_get_ns();
         zero.pid = bpf_get_current_pid_tgid() >> 32;
