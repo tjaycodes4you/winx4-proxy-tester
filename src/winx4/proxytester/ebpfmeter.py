@@ -91,13 +91,19 @@ class ConnMeter:
         deadline = loop.time() + timeout
         graced = False
         while True:
-            match = self._match(start_mono, dport, local_ports)
-            if match is not None:
+            matched = self._match_events(start_mono, dport, local_ports)
+            if matched:
                 if grace > 0 and local_ports and not graced and loop.time() < deadline:
                     graced = True
                     await asyncio.sleep(min(grace, max(0.0, deadline - loop.time())))
                     continue
-                return match
+                for e in matched:
+                    e.claimed = True
+                return (
+                    sum(e.bytes_in for e in matched),
+                    sum(e.bytes_out for e in matched),
+                    max(e.dur_ms for e in matched),
+                )
             remaining = deadline - loop.time()
             if remaining <= 0:
                 return None
@@ -107,17 +113,11 @@ class ConnMeter:
             except asyncio.TimeoutError:
                 return None
 
-    def _match(self, start_mono: int, dport: int, local_ports: tuple[int, ...]):
+    def _match_events(self, start_mono: int, dport: int, local_ports: tuple[int, ...]):
         if local_ports:
             matched = [e for e in self.events if not e.claimed and e.lport in local_ports]
             if matched:
-                for e in matched:
-                    e.claimed = True
-                return (
-                    sum(e.bytes_in for e in matched),
-                    sum(e.bytes_out for e in matched),
-                    max(e.dur_ms for e in matched),
-                )
+                return matched
         best = None
         best_d = SLACK_NS
         for e in self.events:
@@ -127,10 +127,7 @@ class ConnMeter:
             if d < best_d:
                 best_d = d
                 best = e
-        if best is not None:
-            best.claimed = True
-            return best.bytes_in, best.bytes_out, best.dur_ms
-        return None
+        return [best] if best is not None else []
 
     def _prune(self) -> None:
         cutoff = time.monotonic_ns() - PRUNE_AGE_NS
