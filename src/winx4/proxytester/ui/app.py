@@ -140,7 +140,7 @@ def index():
         text = content.decode("utf-8", errors="ignore")
         state["entries"] = list(parse_lines(io.StringIO(text)))
         state["source"] = "upload"
-        count_lbl.set_text(f"{len(state['entries']):,} proxies loaded: {e.name}")
+        count_lbl.set_text(f"{len(state['entries']):,} proxies loaded: {getattr(e.file, 'name', '')}")
 
     def set_led(color: str) -> None:
         led.style(f"color:{color}; text-shadow: 0 0 10px {color}; font-size: 14px")
